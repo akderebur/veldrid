@@ -333,19 +333,25 @@ namespace Veldrid.MTL
             {
                 if (RenderPipelineState.NativePtr != IntPtr.Zero)
                 {
-                    render_pipeline_states.Remove(render_pipeline_states.Single(kvp => kvp.Value.NativePtr == RenderPipelineState.NativePtr).Key);
+                    var pair = render_pipeline_states.SingleOrDefault(kvp => kvp.Value.NativePtr == RenderPipelineState.NativePtr);
+                    if (render_pipeline_states.ContainsKey(pair.Key))
+                        render_pipeline_states.Remove(pair.Key);
                     ObjectiveCRuntime.release(RenderPipelineState.NativePtr);
                 }
 
                 if (DepthStencilState.NativePtr != IntPtr.Zero)
                 {
-                    depth_stencil_states.Remove(depth_stencil_states.Single(kvp => kvp.Value.NativePtr == DepthStencilState.NativePtr).Key);
+                    var pair = depth_stencil_states.SingleOrDefault(kvp => kvp.Value.NativePtr == DepthStencilState.NativePtr);
+                    if (depth_stencil_states.ContainsKey(pair.Key))
+                        depth_stencil_states.Remove(pair.Key);
                     ObjectiveCRuntime.release(DepthStencilState.NativePtr);
                 }
 
                 if (ComputePipelineState.NativePtr != IntPtr.Zero)
                 {
-                    compute_pipeline_states.Remove(compute_pipeline_states.Single(kvp => kvp.Value.NativePtr == ComputePipelineState.NativePtr).Key);
+                    var pair = compute_pipeline_states.SingleOrDefault(kvp => kvp.Value.NativePtr == ComputePipelineState.NativePtr);
+                    if (compute_pipeline_states.ContainsKey(pair.Key))
+                        compute_pipeline_states.Remove(pair.Key);
                     ObjectiveCRuntime.release(ComputePipelineState.NativePtr);
                 }
 
