@@ -338,24 +338,30 @@ namespace Veldrid.MTL
                 {
                     var pair = render_pipeline_states.SingleOrDefault(kvp => kvp.Value.NativePtr == RenderPipelineState.NativePtr);
                     if (render_pipeline_states.ContainsKey(pair.Key))
+                    {
                         render_pipeline_states.Remove(pair.Key);
-                    ObjectiveCRuntime.release(RenderPipelineState.NativePtr);
+                        ObjectiveCRuntime.release(RenderPipelineState.NativePtr);
+                    }
                 }
 
                 if (DepthStencilState.NativePtr != IntPtr.Zero)
                 {
                     var pair = depth_stencil_states.SingleOrDefault(kvp => kvp.Value.NativePtr == DepthStencilState.NativePtr);
                     if (depth_stencil_states.ContainsKey(pair.Key))
+                    {
                         depth_stencil_states.Remove(pair.Key);
-                    ObjectiveCRuntime.release(DepthStencilState.NativePtr);
+                        ObjectiveCRuntime.release(DepthStencilState.NativePtr);
+                    }
                 }
 
                 if (ComputePipelineState.NativePtr != IntPtr.Zero)
                 {
                     var pair = compute_pipeline_states.SingleOrDefault(kvp => kvp.Value.NativePtr == ComputePipelineState.NativePtr);
                     if (compute_pipeline_states.ContainsKey(pair.Key))
+                    {
                         compute_pipeline_states.Remove(pair.Key);
-                    ObjectiveCRuntime.release(ComputePipelineState.NativePtr);
+                        ObjectiveCRuntime.release(ComputePipelineState.NativePtr);
+                    }
                 }
 
                 if (_specializedFunctions != null)
