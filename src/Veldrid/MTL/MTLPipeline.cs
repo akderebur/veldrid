@@ -173,6 +173,7 @@ namespace Veldrid.MTL
                 mtlDesc.alphaToCoverageEnabled = blendStateDesc.AlphaToCoverageEnabled;
 
                 renderPipelineState = gd.Device.newRenderPipelineStateWithDescriptor(mtlDesc);
+                render_pipeline_states.Add(stateLookup, renderPipelineState);
                 ObjectiveCRuntime.release(mtlDesc.NativePtr);
             }
 
@@ -219,6 +220,7 @@ namespace Veldrid.MTL
                     }
 
                     depthStencilState = gd.Device.newDepthStencilStateWithDescriptor(depthDescriptor);
+                    depth_stencil_states.Add(description.DepthStencilState, depthStencilState);
                     ObjectiveCRuntime.release(depthDescriptor.NativePtr);
                 }
 
@@ -295,6 +297,7 @@ namespace Veldrid.MTL
                 }
 
                 computePipelineState = gd.Device.newComputePipelineStateWithDescriptor(mtlDesc);
+                compute_pipeline_states.Add(stateLookup, computePipelineState);
                 ObjectiveCRuntime.release(mtlDesc.NativePtr);
             }
 
