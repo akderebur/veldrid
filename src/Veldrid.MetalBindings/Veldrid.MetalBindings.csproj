@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup Label="Nuget">
-    <PackageId>ppy.Veldrid.MetalBindings</PackageId>
+    <PackageId>ABEngine.Veldrid.MetalBindings</PackageId>
     <Version>0.0.0</Version>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyName>ppy.Veldrid.MetalBindings</AssemblyName>
+    <AssemblyName>ABEngine.Veldrid.MetalBindings</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
