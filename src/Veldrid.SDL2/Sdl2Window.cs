@@ -6,10 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Text;
-
-using static Veldrid.Sdl2.Sdl2Native;
 using System.ComponentModel;
 using Veldrid;
+using static SDL2.SDL;
+using System.Runtime.InteropServices;
 
 namespace Veldrid.Sdl2
 {
@@ -70,7 +70,7 @@ namespace Veldrid.Sdl2
             }
             else
             {
-                _window = SDL_CreateWindow(title, x, y, width, height, flags);
+                _window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, flags);
                 WindowID = SDL_GetWindowID(_window);
                 Sdl2WindowRegistry.RegisterWindow(this);
                 PostWindowCreated(flags);
@@ -112,6 +112,9 @@ namespace Veldrid.Sdl2
 
         public IntPtr Handle => GetUnderlyingWindowHandle();
 
+        public IntPtr HandleRaw => _window;
+
+
         public string Title { get => _cachedWindowTitle; set => SetWindowTitle(value); }
 
         private void SetWindowTitle(string value)
@@ -124,25 +127,25 @@ namespace Veldrid.Sdl2
         {
             get
             {
-                SDL_WindowFlags flags = SDL_GetWindowFlags(_window);
-                if (((flags & SDL_WindowFlags.FullScreenDesktop) == SDL_WindowFlags.FullScreenDesktop)
-                    || ((flags & (SDL_WindowFlags.Borderless | SDL_WindowFlags.Fullscreen)) == (SDL_WindowFlags.Borderless | SDL_WindowFlags.Fullscreen)))
+                SDL_WindowFlags flags = (SDL_WindowFlags)SDL_GetWindowFlags(_window);
+                if (((flags & SDL_WindowFlags.SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WindowFlags.SDL_WINDOW_FULLSCREEN_DESKTOP)
+                    || ((flags & (SDL_WindowFlags.SDL_WINDOW_BORDERLESS | SDL_WindowFlags.SDL_WINDOW_FULLSCREEN)) == (SDL_WindowFlags.SDL_WINDOW_BORDERLESS | SDL_WindowFlags.SDL_WINDOW_FULLSCREEN)))
                 {
                     return WindowState.BorderlessFullScreen;
                 }
-                else if ((flags & SDL_WindowFlags.Minimized) == SDL_WindowFlags.Minimized)
+                else if ((flags & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) == SDL_WindowFlags.SDL_WINDOW_MINIMIZED)
                 {
                     return WindowState.Minimized;
                 }
-                else if ((flags & SDL_WindowFlags.Fullscreen) == SDL_WindowFlags.Fullscreen)
+                else if ((flags & SDL_WindowFlags.SDL_WINDOW_FULLSCREEN) == SDL_WindowFlags.SDL_WINDOW_FULLSCREEN)
                 {
                     return WindowState.FullScreen;
                 }
-                else if ((flags & SDL_WindowFlags.Maximized) == SDL_WindowFlags.Maximized)
+                else if ((flags & SDL_WindowFlags.SDL_WINDOW_MAXIMIZED) == SDL_WindowFlags.SDL_WINDOW_MAXIMIZED)
                 {
                     return WindowState.Maximized;
                 }
-                else if ((flags & SDL_WindowFlags.Hidden) == SDL_WindowFlags.Hidden)
+                else if ((flags & SDL_WindowFlags.SDL_WINDOW_HIDDEN) == SDL_WindowFlags.SDL_WINDOW_HIDDEN)
                 {
                     return WindowState.Hidden;
                 }
@@ -154,10 +157,10 @@ namespace Veldrid.Sdl2
                 switch (value)
                 {
                     case WindowState.Normal:
-                        SDL_SetWindowFullscreen(_window, SDL_FullscreenMode.Windowed);
+                        SDL_SetWindowFullscreen(_window, 0);
                         break;
                     case WindowState.FullScreen:
-                        SDL_SetWindowFullscreen(_window, SDL_FullscreenMode.Fullscreen);
+                        SDL_SetWindowFullscreen(_window, (uint)SDL_WindowFlags.SDL_WINDOW_FULLSCREEN);
                         break;
                     case WindowState.Maximized:
                         SDL_MaximizeWindow(_window);
@@ -166,7 +169,7 @@ namespace Veldrid.Sdl2
                         SDL_MinimizeWindow(_window);
                         break;
                     case WindowState.BorderlessFullScreen:
-                        SDL_SetWindowFullscreen(_window, SDL_FullscreenMode.FullScreenDesktop);
+                        SDL_SetWindowFullscreen(_window, (uint)SDL_WindowFlags.SDL_WINDOW_FULLSCREEN_DESKTOP);
                         break;
                     case WindowState.Hidden:
                         SDL_HideWindow(_window);
@@ -177,11 +180,12 @@ namespace Veldrid.Sdl2
             }
         }
 
+
         public bool Exists => _exists;
 
         public bool Visible
         {
-            get => (SDL_GetWindowFlags(_window) & SDL_WindowFlags.Shown) != 0;
+            get => (SDL_GetWindowFlags(_window) & (uint)SDL_WindowFlags.SDL_WINDOW_SHOWN) != 0;
             set
             {
                 if (value)
@@ -203,7 +207,7 @@ namespace Veldrid.Sdl2
         {
             get
             {
-                return SDL_ShowCursor(SDL_QUERY) == 1;
+                return SDL_ShowCursor(SDL_QUERY) == SDL_ENABLE;
             }
             set
             {
@@ -211,13 +215,12 @@ namespace Veldrid.Sdl2
                 SDL_ShowCursor(toggle);
             }
         }
-
         public float Opacity
         {
             get
             {
                 float opacity = float.NaN;
-                if (SDL_GetWindowOpacity(_window, &opacity) == 0)
+                if (SDL_GetWindowOpacity(_window, out opacity) == 0)
                 {
                     return opacity;
                 }
@@ -229,19 +232,20 @@ namespace Veldrid.Sdl2
             }
         }
 
-        public bool Focused => (SDL_GetWindowFlags(_window) & SDL_WindowFlags.InputFocus) != 0;
+        public bool Focused => (SDL_GetWindowFlags(_window) & (uint)SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0;
 
         public bool Resizable
         {
-            get => (SDL_GetWindowFlags(_window) & SDL_WindowFlags.Resizable) != 0;
-            set => SDL_SetWindowResizable(_window, value ? 1u : 0u);
+            get => (SDL_GetWindowFlags(_window) & (uint)SDL_WindowFlags.SDL_WINDOW_RESIZABLE) != 0;
+            set => SDL_SetWindowResizable(_window, value ? SDL_bool.SDL_TRUE : SDL_bool.SDL_FALSE);
         }
 
         public bool BorderVisible
         {
-            get => (SDL_GetWindowFlags(_window) & SDL_WindowFlags.Borderless) == 0;
-            set => SDL_SetWindowBordered(_window, value ? 1u : 0u);
+            get => (SDL_GetWindowFlags(_window) & (uint)SDL_WindowFlags.SDL_WINDOW_BORDERLESS) == 0;
+            set => SDL_SetWindowBordered(_window, value ? SDL_bool.SDL_TRUE : SDL_bool.SDL_FALSE);
         }
+
 
         public IntPtr SdlWindowHandle => _window;
 
@@ -355,7 +359,7 @@ namespace Veldrid.Sdl2
         {
             RefreshCachedPosition();
             RefreshCachedSize();
-            if ((flags & SDL_WindowFlags.Shown) == SDL_WindowFlags.Shown)
+            if ((flags & SDL_WindowFlags.SDL_WINDOW_SHOWN) == SDL_WindowFlags.SDL_WINDOW_SHOWN)
             {
                 SDL_ShowWindow(_window);
             }
@@ -417,46 +421,44 @@ namespace Veldrid.Sdl2
         {
             switch (ev->type)
             {
-                case SDL_EventType.Quit:
+                case SDL_EventType.SDL_QUIT:
                     Close();
                     break;
-                case SDL_EventType.Terminating:
-                    Close();
-                    break;
-                case SDL_EventType.WindowEvent:
-                    SDL_WindowEvent windowEvent = Unsafe.Read<SDL_WindowEvent>(ev);
+                case SDL_EventType.SDL_WINDOWEVENT:
+                    SDL_WindowEvent windowEvent = ev->window;
                     HandleWindowEvent(windowEvent);
                     break;
-                case SDL_EventType.KeyDown:
-                case SDL_EventType.KeyUp:
-                    SDL_KeyboardEvent keyboardEvent = Unsafe.Read<SDL_KeyboardEvent>(ev);
+                case SDL_EventType.SDL_KEYDOWN:
+                case SDL_EventType.SDL_KEYUP:
+                    SDL_KeyboardEvent keyboardEvent = ev->key;
                     HandleKeyboardEvent(keyboardEvent);
                     break;
-                case SDL_EventType.TextEditing:
+                case SDL_EventType.SDL_TEXTEDITING:
                     break;
-                case SDL_EventType.TextInput:
-                    SDL_TextInputEvent textInputEvent = Unsafe.Read<SDL_TextInputEvent>(ev);
+                case SDL_EventType.SDL_TEXTINPUT:
+                    SDL_TextInputEvent textInputEvent = ev->text;
                     HandleTextInputEvent(textInputEvent);
                     break;
-                case SDL_EventType.KeyMapChanged:
+                case SDL_EventType.SDL_KEYMAPCHANGED:
                     break;
-                case SDL_EventType.MouseMotion:
-                    SDL_MouseMotionEvent mouseMotionEvent = Unsafe.Read<SDL_MouseMotionEvent>(ev);
+                case SDL_EventType.SDL_MOUSEMOTION:
+                    SDL_MouseMotionEvent mouseMotionEvent = ev->motion;
                     HandleMouseMotionEvent(mouseMotionEvent);
                     break;
-                case SDL_EventType.MouseButtonDown:
-                case SDL_EventType.MouseButtonUp:
-                    SDL_MouseButtonEvent mouseButtonEvent = Unsafe.Read<SDL_MouseButtonEvent>(ev);
+                case SDL_EventType.SDL_MOUSEBUTTONDOWN:
+                case SDL_EventType.SDL_MOUSEBUTTONUP:
+                    SDL_MouseButtonEvent mouseButtonEvent = ev->button;
                     HandleMouseButtonEvent(mouseButtonEvent);
                     break;
-                case SDL_EventType.MouseWheel:
-                    SDL_MouseWheelEvent mouseWheelEvent = Unsafe.Read<SDL_MouseWheelEvent>(ev);
+                case SDL_EventType.SDL_MOUSEWHEEL:
+                    SDL_MouseWheelEvent mouseWheelEvent = ev->wheel;
                     HandleMouseWheelEvent(mouseWheelEvent);
                     break;
-                case SDL_EventType.DropFile:
-                case SDL_EventType.DropBegin:
-                case SDL_EventType.DropTest:
-                    SDL_DropEvent dropEvent = Unsafe.Read<SDL_DropEvent>(ev);
+                case SDL_EventType.SDL_DROPFILE:
+                case SDL_EventType.SDL_DROPBEGIN:
+                case SDL_EventType.SDL_DROPCOMPLETE:
+                case SDL_EventType.SDL_DROPTEXT:
+                    SDL_DropEvent dropEvent = ev->drop;
                     HandleDropEvent(dropEvent);
                     break;
                 default:
@@ -464,6 +466,7 @@ namespace Veldrid.Sdl2
                     break;
             }
         }
+
 
         private void CheckNewWindowTitle()
         {
@@ -478,7 +481,7 @@ namespace Veldrid.Sdl2
         {
             uint byteCount = 0;
             // Loop until the null terminator is found or the max size is reached.
-            while (byteCount < SDL_TextInputEvent.MaxTextSize && textInputEvent.text[byteCount++] != 0)
+            while (byteCount < SDL_TEXTINPUTEVENT_TEXT_SIZE && textInputEvent.text[byteCount++] != 0)
             { }
 
             if (byteCount > 1)
@@ -503,10 +506,9 @@ namespace Veldrid.Sdl2
 
         private void HandleDropEvent(SDL_DropEvent dropEvent)
         {
-            string file = Utilities.GetString(dropEvent.file);
-            SDL_free(dropEvent.file);
+            string file = Marshal.PtrToStringAnsi(dropEvent.file);
 
-            if (dropEvent.type == SDL_EventType.DropFile)
+            if (dropEvent.type == SDL_EventType.SDL_DROPFILE)
             {
                 DragDrop?.Invoke(new DragDropEvent(file));
             }
@@ -515,7 +517,7 @@ namespace Veldrid.Sdl2
         private void HandleMouseButtonEvent(SDL_MouseButtonEvent mouseButtonEvent)
         {
             MouseButton button = MapMouseButton(mouseButtonEvent.button);
-            bool down = mouseButtonEvent.state == 1;
+            bool down = mouseButtonEvent.state == SDL_PRESSED;
             _currentMouseButtonStates[(int)button] = down;
             _privateSnapshot.MouseDown[(int)button] = down;
             MouseEvent mouseEvent = new MouseEvent(button, down);
@@ -530,19 +532,19 @@ namespace Veldrid.Sdl2
             }
         }
 
-        private MouseButton MapMouseButton(SDL_MouseButton button)
+        private MouseButton MapMouseButton(uint button)
         {
             switch (button)
             {
-                case SDL_MouseButton.Left:
+                case SDL_BUTTON_LEFT:
                     return MouseButton.Left;
-                case SDL_MouseButton.Middle:
+                case SDL_BUTTON_MIDDLE:
                     return MouseButton.Middle;
-                case SDL_MouseButton.Right:
+                case SDL_BUTTON_RIGHT:
                     return MouseButton.Right;
-                case SDL_MouseButton.X1:
+                case SDL_BUTTON_X1:
                     return MouseButton.Button1;
-                case SDL_MouseButton.X2:
+                case SDL_BUTTON_X2:
                     return MouseButton.Button2;
                 default:
                     return MouseButton.Left;
@@ -829,19 +831,19 @@ namespace Veldrid.Sdl2
         private ModifierKeys MapModifierKeys(SDL_Keymod mod)
         {
             ModifierKeys mods = ModifierKeys.None;
-            if ((mod & (SDL_Keymod.LeftShift | SDL_Keymod.RightShift)) != 0)
+            if ((mod & (SDL_Keymod.KMOD_LSHIFT | SDL_Keymod.KMOD_RSHIFT)) != 0)
             {
                 mods |= ModifierKeys.Shift;
             }
-            if ((mod & (SDL_Keymod.LeftAlt | SDL_Keymod.RightAlt)) != 0)
+            if ((mod & (SDL_Keymod.KMOD_LALT | SDL_Keymod.KMOD_RALT)) != 0)
             {
                 mods |= ModifierKeys.Alt;
             }
-            if ((mod & (SDL_Keymod.LeftControl | SDL_Keymod.RightControl)) != 0)
+            if ((mod & (SDL_Keymod.KMOD_LCTRL | SDL_Keymod.KMOD_RCTRL)) != 0)
             {
                 mods |= ModifierKeys.Control;
             }
-            if ((mod & (SDL_Keymod.LeftGui | SDL_Keymod.RightGui)) != 0)
+            if ((mod & (SDL_Keymod.KMOD_LGUI | SDL_Keymod.KMOD_RGUI)) != 0)
             {
                 mods |= ModifierKeys.Gui;
             }
@@ -849,47 +851,47 @@ namespace Veldrid.Sdl2
             return mods;
         }
 
-        private void HandleWindowEvent(SDL_WindowEvent windowEvent)
+        private void HandleWindowEvent(SDL_WindowEvent e)
         {
-            switch (windowEvent.@event)
+            switch (e.windowEvent)
             {
-                case SDL_WindowEventID.Resized:
-                case SDL_WindowEventID.SizeChanged:
-                case SDL_WindowEventID.Minimized:
-                case SDL_WindowEventID.Maximized:
-                case SDL_WindowEventID.Restored:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_RESIZED:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_SIZE_CHANGED:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_MINIMIZED:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_MAXIMIZED:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_RESTORED:
                     HandleResizedMessage();
                     break;
-                case SDL_WindowEventID.FocusGained:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_FOCUS_GAINED:
                     FocusGained?.Invoke();
                     break;
-                case SDL_WindowEventID.FocusLost:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_FOCUS_LOST:
                     FocusLost?.Invoke();
                     break;
-                case SDL_WindowEventID.Close:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_CLOSE:
                     Close();
                     break;
-                case SDL_WindowEventID.Shown:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_SHOWN:
                     Shown?.Invoke();
                     break;
-                case SDL_WindowEventID.Hidden:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_HIDDEN:
                     Hidden?.Invoke();
                     break;
-                case SDL_WindowEventID.Enter:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_ENTER:
                     MouseEntered?.Invoke();
                     break;
-                case SDL_WindowEventID.Leave:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_LEAVE:
                     MouseLeft?.Invoke();
                     break;
-                case SDL_WindowEventID.Exposed:
+                case SDL_WindowEventID.SDL_WINDOWEVENT_EXPOSED:
                     Exposed?.Invoke();
                     break;
-                case SDL_WindowEventID.Moved:
-                    _cachedPosition.Value = new Point(windowEvent.data1, windowEvent.data2);
-                    Moved?.Invoke(new Point(windowEvent.data1, windowEvent.data2));
+                case SDL_WindowEventID.SDL_WINDOWEVENT_MOVED:
+                    _cachedPosition.Value = new Point(e.data1, e.data2);
+                    Moved?.Invoke(new Point(e.data1, e.data2));
                     break;
                 default:
-                    Debug.WriteLine("Unhandled SDL WindowEvent: " + windowEvent.@event);
+                    Debug.WriteLine("Unhandled SDL_WindowEvent: " + e.windowEvent);
                     break;
             }
         }
@@ -903,14 +905,14 @@ namespace Veldrid.Sdl2
         private void RefreshCachedSize()
         {
             int w, h;
-            SDL_GetWindowSize(_window, &w, &h);
+            SDL_GetWindowSize(_window, out w, out h);
             _cachedSize.Value = new Point(w, h);
         }
 
         private void RefreshCachedPosition()
         {
             int x, y;
-            SDL_GetWindowPosition(_window, &x, &y);
+            SDL_GetWindowPosition(_window, out x, out y);
             _cachedPosition.Value = new Point(x, y);
         }
 
@@ -952,26 +954,22 @@ namespace Veldrid.Sdl2
 
         private IntPtr GetUnderlyingWindowHandle()
         {
-            SDL_SysWMinfo wmInfo;
-            SDL_GetVersion(&wmInfo.version);
-            SDL_GetWMWindowInfo(_window, &wmInfo);
-            switch (wmInfo.subsystem)
+            SDL_SysWMinfo sysWmInfo = new SDL_SysWMinfo();
+            SDL_VERSION(out sysWmInfo.version);
+            SDL_GetWindowWMInfo(_window, ref sysWmInfo);
+
+            switch (sysWmInfo.subsystem)
             {
-                case SysWMType.Windows:
-                    Win32WindowInfo win32Info = Unsafe.Read<Win32WindowInfo>(&wmInfo.info);
-                    return win32Info.Sdl2Window;
-                case SysWMType.X11:
-                    X11WindowInfo x11Info = Unsafe.Read<X11WindowInfo>(&wmInfo.info);
-                    return x11Info.Sdl2Window;
-                case SysWMType.Wayland:
-                    WaylandWindowInfo waylandInfo = Unsafe.Read<WaylandWindowInfo>(&wmInfo.info);
-                    return waylandInfo.surface;
-                case SysWMType.Cocoa:
-                    CocoaWindowInfo cocoaInfo = Unsafe.Read<CocoaWindowInfo>(&wmInfo.info);
-                    return cocoaInfo.Window;
-                case SysWMType.Android:
-                    AndroidWindowInfo androidInfo = Unsafe.Read<AndroidWindowInfo>(&wmInfo.info);
-                    return androidInfo.window;
+                case SDL_SYSWM_TYPE.SDL_SYSWM_WINDOWS:
+                    return sysWmInfo.info.win.window;
+                case SDL_SYSWM_TYPE.SDL_SYSWM_X11:
+                    return sysWmInfo.info.x11.window;
+                case SDL_SYSWM_TYPE.SDL_SYSWM_COCOA:
+                    return sysWmInfo.info.cocoa.window;
+                case SDL_SYSWM_TYPE.SDL_SYSWM_WAYLAND:
+                    return sysWmInfo.info.wl.egl_window;
+                case SDL_SYSWM_TYPE.SDL_SYSWM_ANDROID:
+                    return sysWmInfo.info.android.window;
                 default:
                     return _window;
             }
@@ -1040,7 +1038,7 @@ namespace Veldrid.Sdl2
 
             public ManualResetEvent ResetEvent { get; set; }
 
-            public SDL_Window Create()
+            public IntPtr Create()
             {
                 if (WindowHandle != IntPtr.Zero)
                 {

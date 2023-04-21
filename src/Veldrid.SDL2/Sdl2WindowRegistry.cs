@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using static Veldrid.Sdl2.Sdl2Native;
+using static SDL2.SDL;
 
 namespace Veldrid.Sdl2
 {
@@ -36,32 +36,31 @@ namespace Veldrid.Sdl2
             }
         }
 
-        private static unsafe void ProcessWindowEvent(ref SDL_Event ev)
+        private static void ProcessWindowEvent(ref SDL_Event ev)
         {
             bool handled = false;
             uint windowID = 0;
             switch (ev.type)
             {
-                case SDL_EventType.Quit:
-                case SDL_EventType.Terminating:
-                case SDL_EventType.WindowEvent:
-                case SDL_EventType.KeyDown:
-                case SDL_EventType.KeyUp:
-                case SDL_EventType.TextEditing:
-                case SDL_EventType.TextInput:
-                case SDL_EventType.KeyMapChanged:
-                case SDL_EventType.MouseMotion:
-                case SDL_EventType.MouseButtonDown:
-                case SDL_EventType.MouseButtonUp:
-                case SDL_EventType.MouseWheel:
-                    windowID = ev.windowID;
+                case SDL_EventType.SDL_QUIT:
+                case SDL_EventType.SDL_WINDOWEVENT:
+                case SDL_EventType.SDL_KEYDOWN:
+                case SDL_EventType.SDL_KEYUP:
+                case SDL_EventType.SDL_TEXTEDITING:
+                case SDL_EventType.SDL_TEXTINPUT:
+                case SDL_EventType.SDL_KEYMAPCHANGED:
+                case SDL_EventType.SDL_MOUSEMOTION:
+                case SDL_EventType.SDL_MOUSEBUTTONDOWN:
+                case SDL_EventType.SDL_MOUSEBUTTONUP:
+                case SDL_EventType.SDL_MOUSEWHEEL:
+                    windowID = ev.window.windowID;
                     handled = true;
                     break;
-                case SDL_EventType.DropBegin:
-                case SDL_EventType.DropComplete:
-                case SDL_EventType.DropFile:
-                case SDL_EventType.DropText:
-                    SDL_DropEvent dropEvent = Unsafe.As<SDL_Event, SDL_DropEvent>(ref ev);
+                case SDL_EventType.SDL_DROPBEGIN:
+                case SDL_EventType.SDL_DROPCOMPLETE:
+                case SDL_EventType.SDL_DROPFILE:
+                case SDL_EventType.SDL_DROPTEXT:
+                    SDL_DropEvent dropEvent = ev.drop;
                     windowID = dropEvent.windowID;
                     handled = true;
                     break;
@@ -69,7 +68,6 @@ namespace Veldrid.Sdl2
                     handled = false;
                     break;
             }
-
 
             if (handled && _eventsByWindowID.TryGetValue(windowID, out Sdl2Window window))
             {

@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using SDL2;
 using Veldrid.Sdl2;
+using static SDL2.SDL;
 
 namespace Veldrid.StartupUtilities
 {
@@ -34,7 +36,7 @@ namespace Veldrid.StartupUtilities
             out Sdl2Window window,
             out GraphicsDevice gd)
         {
-            Sdl2Native.SDL_Init(SDLInitFlags.Video);
+            SDL_Init(SDL_INIT_VIDEO);
             if (preferredBackend == GraphicsBackend.OpenGL || preferredBackend == GraphicsBackend.OpenGLES)
             {
                 SetSDLGLContextAttributes(deviceOptions, preferredBackend);
@@ -49,11 +51,16 @@ namespace Veldrid.StartupUtilities
 
         public static Sdl2Window CreateWindow(ref WindowCreateInfo windowCI)
         {
-            SDL_WindowFlags flags = SDL_WindowFlags.OpenGL | SDL_WindowFlags.Resizable
+            if (SDL.SDL_Init(SDL.SDL_INIT_VIDEO) != 0)
+            {
+                throw new InvalidOperationException($"Unable to initialize SDL: {SDL.SDL_GetError()}");
+            }
+
+            SDL_WindowFlags flags = SDL_WindowFlags.SDL_WINDOW_OPENGL | SDL_WindowFlags.SDL_WINDOW_RESIZABLE
                     | GetWindowFlags(windowCI.WindowInitialState);
             if (windowCI.WindowInitialState != WindowState.Hidden)
             {
-                flags |= SDL_WindowFlags.Shown;
+                flags |= SDL_WindowFlags.SDL_WINDOW_SHOWN;
             }
             Sdl2Window window = new Sdl2Window(
                 windowCI.WindowTitle,
@@ -72,17 +79,17 @@ namespace Veldrid.StartupUtilities
             switch (state)
             {
                 case WindowState.Normal:
-                    return 0;
+                    return SDL_WindowFlags.SDL_WINDOW_RESIZABLE;
                 case WindowState.FullScreen:
-                    return SDL_WindowFlags.Fullscreen;
+                    return SDL_WindowFlags.SDL_WINDOW_FULLSCREEN_DESKTOP;
                 case WindowState.Maximized:
-                    return SDL_WindowFlags.Maximized;
+                    return SDL_WindowFlags.SDL_WINDOW_MAXIMIZED;
                 case WindowState.Minimized:
-                    return SDL_WindowFlags.Minimized;
+                    return SDL_WindowFlags.SDL_WINDOW_MINIMIZED;
                 case WindowState.BorderlessFullScreen:
-                    return SDL_WindowFlags.FullScreenDesktop;
+                    return SDL_WindowFlags.SDL_WINDOW_FULLSCREEN;
                 case WindowState.Hidden:
-                    return SDL_WindowFlags.Hidden;
+                    return SDL_WindowFlags.SDL_WINDOW_HIDDEN;
                 default:
                     throw new VeldridException("Invalid WindowState: " + state);
             }
@@ -138,29 +145,25 @@ namespace Veldrid.StartupUtilities
 
         public static unsafe SwapchainSource GetSwapchainSource(Sdl2Window window)
         {
-            IntPtr sdlHandle = window.SdlWindowHandle;
-            SDL_SysWMinfo sysWmInfo;
-            Sdl2Native.SDL_GetVersion(&sysWmInfo.version);
-            Sdl2Native.SDL_GetWMWindowInfo(sdlHandle, &sysWmInfo);
+            SDL_SysWMinfo sysWmInfo = new SDL.SDL_SysWMinfo();
+            SDL_VERSION(out sysWmInfo.version);
+            if (SDL_GetWindowWMInfo(window.HandleRaw, ref sysWmInfo) == SDL_bool.SDL_FALSE)
+            {
+                throw new InvalidOperationException($"Unable to get window info: {SDL.SDL_GetError()}");
+            }
+
             switch (sysWmInfo.subsystem)
             {
-                case SysWMType.Windows:
-                    Win32WindowInfo w32Info = Unsafe.Read<Win32WindowInfo>(&sysWmInfo.info);
-                    return SwapchainSource.CreateWin32(w32Info.Sdl2Window, w32Info.hinstance);
-                case SysWMType.X11:
-                    X11WindowInfo x11Info = Unsafe.Read<X11WindowInfo>(&sysWmInfo.info);
+                case SDL_SYSWM_TYPE.SDL_SYSWM_WINDOWS:
+                    return SwapchainSource.CreateWin32(sysWmInfo.info.win.window, sysWmInfo.info.win.hinstance);
+                case SDL_SYSWM_TYPE.SDL_SYSWM_X11:
                     return SwapchainSource.CreateXlib(
-                        x11Info.display,
-                        x11Info.Sdl2Window);
-                case SysWMType.Wayland:
-                    WaylandWindowInfo wlInfo = Unsafe.Read<WaylandWindowInfo>(&sysWmInfo.info);
-                    return SwapchainSource.CreateWayland(wlInfo.display, wlInfo.surface);
-                case SysWMType.Cocoa:
-                    CocoaWindowInfo cocoaInfo = Unsafe.Read<CocoaWindowInfo>(&sysWmInfo.info);
-                    IntPtr nsWindow = cocoaInfo.Window;
-                    return SwapchainSource.CreateNSWindow(nsWindow);
+                        sysWmInfo.info.x11.display,
+                        sysWmInfo.info.x11.window);
+                case SDL_SYSWM_TYPE.SDL_SYSWM_COCOA:
+                    return SwapchainSource.CreateNSWindow(sysWmInfo.info.cocoa.window);
                 default:
-                    throw new PlatformNotSupportedException("Cannot create a SwapchainSource for " + sysWmInfo.subsystem + ".");
+                    throw new NotSupportedException($"Unsupported SDL platform: {sysWmInfo.subsystem}");
             }
         }
 
@@ -228,14 +231,12 @@ namespace Veldrid.StartupUtilities
         {
             switch (sysWmInfo.subsystem)
             {
-                case SysWMType.Windows:
-                    Win32WindowInfo w32Info = Unsafe.Read<Win32WindowInfo>(&sysWmInfo.info);
-                    return Vk.VkSurfaceSource.CreateWin32(w32Info.hinstance, w32Info.Sdl2Window);
-                case SysWMType.X11:
-                    X11WindowInfo x11Info = Unsafe.Read<X11WindowInfo>(&sysWmInfo.info);
+                case SDL_SYSWM_TYPE.SDL_SYSWM_WINDOWS:
+                    return Vk.VkSurfaceSource.CreateWin32(sysWmInfo.info.win.hinstance, sysWmInfo.info.win.window);
+                case SDL_SYSWM_TYPE.SDL_SYSWM_X11:
                     return Vk.VkSurfaceSource.CreateXlib(
-                        (Vulkan.Xlib.Display*)x11Info.display,
-                        new Vulkan.Xlib.Window() { Value = x11Info.Sdl2Window });
+                        (Vulkan.Xlib.Display*)sysWmInfo.info.x11.display,
+                        new Vulkan.Xlib.Window() { Value = sysWmInfo.info.x11.window });
                 default:
                     throw new PlatformNotSupportedException("Cannot create a Vulkan surface for " + sysWmInfo.subsystem + ".");
             }
@@ -248,43 +249,40 @@ namespace Veldrid.StartupUtilities
             Sdl2Window window,
             GraphicsBackend backend)
         {
-            Sdl2Native.SDL_ClearError();
+            SDL_ClearError();
             IntPtr sdlHandle = window.SdlWindowHandle;
 
-            SDL_SysWMinfo sysWmInfo;
-            Sdl2Native.SDL_GetVersion(&sysWmInfo.version);
-            Sdl2Native.SDL_GetWMWindowInfo(sdlHandle, &sysWmInfo);
+            SDL_SysWMinfo sysWmInfo = new SDL_SysWMinfo();
+            SDL_GetVersion(out sysWmInfo.version);
+            SDL.SDL_GetWindowWMInfo(sdlHandle, ref sysWmInfo);
 
             SetSDLGLContextAttributes(options, backend);
 
-            IntPtr contextHandle = Sdl2Native.SDL_GL_CreateContext(sdlHandle);
-            byte* error = Sdl2Native.SDL_GetError();
-            if (error != null)
+            IntPtr contextHandle = SDL_GL_CreateContext(sdlHandle);
+            string errorString = SDL_GetError();
+
+            if (!string.IsNullOrEmpty(errorString))
             {
-                string errorString = GetString(error);
-                if (!string.IsNullOrEmpty(errorString))
-                {
-                    throw new VeldridException(
-                        $"Unable to create OpenGL Context: \"{errorString}\". This may indicate that the system does not support the requested OpenGL profile, version, or Swapchain format.");
-                }
+                throw new VeldridException(
+                    $"Unable to create OpenGL Context: \"{errorString}\". This may indicate that the system does not support the requested OpenGL profile, version, or Swapchain format.");
             }
 
             int actualDepthSize;
-            int result = Sdl2Native.SDL_GL_GetAttribute(SDL_GLAttribute.DepthSize, &actualDepthSize);
+            int result = SDL_GL_GetAttribute(SDL_GLattr.SDL_GL_DEPTH_SIZE, out actualDepthSize);
             int actualStencilSize;
-            result = Sdl2Native.SDL_GL_GetAttribute(SDL_GLAttribute.StencilSize, &actualStencilSize);
+            result = SDL_GL_GetAttribute(SDL_GLattr.SDL_GL_STENCIL_SIZE, out actualStencilSize);
 
-            result = Sdl2Native.SDL_GL_SetSwapInterval(options.SyncToVerticalBlank ? 1 : 0);
+            result = SDL_GL_SetSwapInterval(options.SyncToVerticalBlank ? 1 : 0);
 
             OpenGL.OpenGLPlatformInfo platformInfo = new OpenGL.OpenGLPlatformInfo(
                 contextHandle,
-                Sdl2Native.SDL_GL_GetProcAddress,
-                context => Sdl2Native.SDL_GL_MakeCurrent(sdlHandle, context),
-                () => Sdl2Native.SDL_GL_GetCurrentContext(),
-                () => Sdl2Native.SDL_GL_MakeCurrent(new SDL_Window(IntPtr.Zero), IntPtr.Zero),
-                Sdl2Native.SDL_GL_DeleteContext,
-                () => Sdl2Native.SDL_GL_SwapWindow(sdlHandle),
-                sync => Sdl2Native.SDL_GL_SetSwapInterval(sync ? 1 : 0));
+                SDL_GL_GetProcAddress,
+                context => SDL_GL_MakeCurrent(sdlHandle, context),
+                () => SDL_GL_GetCurrentContext(),
+                () => SDL_GL_MakeCurrent((IntPtr.Zero), IntPtr.Zero),
+                SDL_GL_DeleteContext,
+                () => SDL_GL_SwapWindow(sdlHandle),
+                sync => SDL_GL_SetSwapInterval(sync ? 1 : 0));
 
             return GraphicsDevice.CreateOpenGL(
                 options,
@@ -301,25 +299,25 @@ namespace Veldrid.StartupUtilities
                     $"{nameof(backend)} must be {nameof(GraphicsBackend.OpenGL)} or {nameof(GraphicsBackend.OpenGLES)}.");
             }
 
-            SDL_GLContextFlag contextFlags = options.Debug
-                ? SDL_GLContextFlag.Debug | SDL_GLContextFlag.ForwardCompatible
-                : SDL_GLContextFlag.ForwardCompatible;
+            SDL_GLcontext contextFlags = options.Debug
+                ? SDL_GLcontext.SDL_GL_CONTEXT_DEBUG_FLAG | SDL_GLcontext.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG
+                : SDL_GLcontext.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
 
-            Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextFlags, (int)contextFlags);
+            SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_FLAGS, (int)contextFlags);
 
             (int major, int minor) = GetMaxGLVersion(backend == GraphicsBackend.OpenGLES);
 
             if (backend == GraphicsBackend.OpenGL)
             {
-                Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextProfileMask, (int)SDL_GLProfile.Core);
-                Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextMajorVersion, major);
-                Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextMinorVersion, minor);
+                SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_PROFILE_MASK, (int)SDL_GLprofile.SDL_GL_CONTEXT_PROFILE_CORE);
+                SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_MAJOR_VERSION, major);
+                SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_MINOR_VERSION, minor);
             }
             else
             {
-                Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextProfileMask, (int)SDL_GLProfile.ES);
-                Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextMajorVersion, major);
-                Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextMinorVersion, minor);
+                SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_PROFILE_MASK, (int)SDL_GLprofile.SDL_GL_CONTEXT_PROFILE_ES);
+                SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_MAJOR_VERSION, major);
+                SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_MINOR_VERSION, minor);
             }
 
             int depthBits = 0;
@@ -347,16 +345,16 @@ namespace Veldrid.StartupUtilities
                 }
             }
 
-            int result = Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.DepthSize, depthBits);
-            result = Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.StencilSize, stencilBits);
+            int result = SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_DEPTH_SIZE, depthBits);
+            result = SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_STENCIL_SIZE, stencilBits);
 
             if (options.SwapchainSrgbFormat)
             {
-                Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.FramebufferSrgbCapable, 1);
+                SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
             }
             else
             {
-                Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.FramebufferSrgbCapable, 0);
+                SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 0);
             }
         }
 #endif
@@ -426,43 +424,40 @@ namespace Veldrid.StartupUtilities
 
         private static unsafe bool TestIndividualGLVersion(bool gles, int major, int minor)
         {
-            SDL_GLProfile profileMask = gles ? SDL_GLProfile.ES : SDL_GLProfile.Core;
+            SDL_GLprofile profileMask = gles ? SDL_GLprofile.SDL_GL_CONTEXT_PROFILE_ES : SDL_GLprofile.SDL_GL_CONTEXT_PROFILE_CORE;
 
-            Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextProfileMask, (int)profileMask);
-            Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextMajorVersion, major);
-            Sdl2Native.SDL_GL_SetAttribute(SDL_GLAttribute.ContextMinorVersion, minor);
+            SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_PROFILE_MASK, (int)profileMask);
+            SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_MAJOR_VERSION, major);
+            SDL_GL_SetAttribute(SDL_GLattr.SDL_GL_CONTEXT_MINOR_VERSION, minor);
 
-            SDL_Window window = Sdl2Native.SDL_CreateWindow(
+            IntPtr window = SDL_CreateWindow(
                 string.Empty,
                 0, 0,
                 1, 1,
-                SDL_WindowFlags.Hidden | SDL_WindowFlags.OpenGL);
-            byte* error = Sdl2Native.SDL_GetError();
-            string errorString = GetString(error);
+                SDL_WindowFlags.SDL_WINDOW_HIDDEN | SDL_WindowFlags.SDL_WINDOW_OPENGL);
 
-            if (window.NativePointer == IntPtr.Zero || !string.IsNullOrEmpty(errorString))
+            string errorString = SDL_GetError();
+
+            if (window == IntPtr.Zero || !string.IsNullOrEmpty(errorString))
             {
-                Sdl2Native.SDL_ClearError();
+                SDL_ClearError();
                 Debug.WriteLine($"Unable to create version {major}.{minor} {profileMask} context.");
                 return false;
             }
 
-            IntPtr context = Sdl2Native.SDL_GL_CreateContext(window);
-            error = Sdl2Native.SDL_GetError();
-            if (error != null)
+            IntPtr context = SDL_GL_CreateContext(window);
+            errorString = SDL_GetError();
+
+            if (!string.IsNullOrEmpty(errorString))
             {
-                errorString = GetString(error);
-                if (!string.IsNullOrEmpty(errorString))
-                {
-                    Sdl2Native.SDL_ClearError();
-                    Debug.WriteLine($"Unable to create version {major}.{minor} {profileMask} context.");
-                    Sdl2Native.SDL_DestroyWindow(window);
-                    return false;
-                }
+                SDL_ClearError();
+                Debug.WriteLine($"Unable to create version {major}.{minor} {profileMask} context.");
+                SDL_DestroyWindow(window);
+                return false;
             }
 
-            Sdl2Native.SDL_GL_DeleteContext(context);
-            Sdl2Native.SDL_DestroyWindow(window);
+            SDL_GL_DeleteContext(context);
+            SDL_DestroyWindow(window);
             return true;
         }
 #endif

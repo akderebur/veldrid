@@ -1,6 +1,5 @@
 using System.Collections.Generic;
-
-using static Veldrid.Sdl2.Sdl2Native;
+using static SDL2.SDL;
 
 namespace Veldrid.Sdl2
 {
@@ -27,12 +26,12 @@ namespace Veldrid.Sdl2
         /// <summary>
         /// Pumps the SDL2 event loop, and calls all registered event processors for each event.
         /// </summary>
-        public static unsafe void ProcessEvents()
+        public static void ProcessEvents()
         {
             lock (s_lock)
             {
                 SDL_Event ev;
-                while (SDL_PollEvent(&ev) == 1)
+                while (SDL_PollEvent(out ev) == 1)
                 {
                     foreach (SDLEventHandler processor in s_processors)
                     {
