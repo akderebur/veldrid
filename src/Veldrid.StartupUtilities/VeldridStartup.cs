@@ -36,7 +36,7 @@ namespace Veldrid.StartupUtilities
             out Sdl2Window window,
             out GraphicsDevice gd)
         {
-            SDL_Init(SDL_INIT_VIDEO);
+            SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
             if (preferredBackend == GraphicsBackend.OpenGL || preferredBackend == GraphicsBackend.OpenGLES)
             {
                 SetSDLGLContextAttributes(deviceOptions, preferredBackend);
@@ -51,7 +51,7 @@ namespace Veldrid.StartupUtilities
 
         public static Sdl2Window CreateWindow(ref WindowCreateInfo windowCI)
         {
-            if (SDL.SDL_Init(SDL.SDL_INIT_VIDEO) != 0)
+            if (SDL.SDL_Init(SDL.SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0)
             {
                 throw new InvalidOperationException($"Unable to initialize SDL: {SDL.SDL_GetError()}");
             }

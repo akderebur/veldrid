@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Description>Raw SDL2 bindings for .NET. Used by Veldrid for window and input management.</Description>
+    <Description>Veldrid SDL2 interface modified to use SDL2-CS.</Description>
     <PackageTags>Core Standard Game SDL2 Window Input</PackageTags>
   </PropertyGroup>
 

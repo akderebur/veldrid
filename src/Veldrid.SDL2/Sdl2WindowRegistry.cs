@@ -14,6 +14,7 @@ namespace Veldrid.Sdl2
         private static readonly Dictionary<uint, Sdl2Window> _eventsByWindowID
             = new Dictionary<uint, Sdl2Window>();
         private static bool _firstInit;
+        private static uint defaultWindowID;
 
         public static void RegisterWindow(Sdl2Window window)
         {
@@ -23,6 +24,7 @@ namespace Veldrid.Sdl2
                 if (!_firstInit)
                 {
                     _firstInit = true;
+                    defaultWindowID = window.WindowID;
                     Sdl2Events.Subscribe(ProcessWindowEvent);
                 }
             }
@@ -39,6 +41,7 @@ namespace Veldrid.Sdl2
         private static void ProcessWindowEvent(ref SDL_Event ev)
         {
             bool handled = false;
+            bool noWindow = false;
             uint windowID = 0;
             switch (ev.type)
             {
@@ -56,6 +59,13 @@ namespace Veldrid.Sdl2
                     windowID = ev.window.windowID;
                     handled = true;
                     break;
+                case SDL_EventType.SDL_CONTROLLERAXISMOTION:
+                case SDL_EventType.SDL_CONTROLLERBUTTONDOWN:
+                case SDL_EventType.SDL_CONTROLLERBUTTONUP:
+                    windowID = ev.window.windowID;
+                    handled = true;
+                    noWindow = true;
+                    break;
                 case SDL_EventType.SDL_DROPBEGIN:
                 case SDL_EventType.SDL_DROPCOMPLETE:
                 case SDL_EventType.SDL_DROPFILE:
@@ -69,9 +79,12 @@ namespace Veldrid.Sdl2
                     break;
             }
 
-            if (handled && _eventsByWindowID.TryGetValue(windowID, out Sdl2Window window))
+            if(handled)
             {
-                window.AddEvent(ev);
+                if (noWindow)
+                    _eventsByWindowID[defaultWindowID].AddEvent(ev);
+                else if(_eventsByWindowID.TryGetValue(windowID, out Sdl2Window window))
+                    window.AddEvent(ev);
             }
         }
     }

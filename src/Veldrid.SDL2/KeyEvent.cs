@@ -612,6 +612,15 @@
         //
         // Summary:
         //     Indicates the last available keyboard key.
-        LastKey = 131
+        LastKey = 131,
+
+        // Controller Keys
+        Controller_A = 132,
+
+        Controller_B = 133,
+
+        Controller_X = 134,
+
+        Controller_Y = 135
     }
 }

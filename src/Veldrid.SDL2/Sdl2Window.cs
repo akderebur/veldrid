@@ -10,6 +10,7 @@ using System.ComponentModel;
 using Veldrid;
 using static SDL2.SDL;
 using System.Runtime.InteropServices;
+using SDL2;
 
 namespace Veldrid.Sdl2
 {
@@ -365,6 +366,27 @@ namespace Veldrid.Sdl2
             }
 
             _exists = true;
+
+            // Controller setup
+
+            int gameControllerIndex = -1;
+            for (int i = 0; i < SDL_NumJoysticks(); ++i)
+            {
+                if (SDL_IsGameController(i) != 0)
+                {
+                    gameControllerIndex = i;
+                    break;
+                }
+            }
+
+            if (gameControllerIndex == -1)
+            {
+                Console.WriteLine("No game controller found.");
+            }
+            else
+            {
+                IntPtr gameController = SDL_GameControllerOpen(gameControllerIndex);
+            }
         }
 
         // Called by Sdl2EventProcessor when an event for this window is encountered.
@@ -376,6 +398,7 @@ namespace Veldrid.Sdl2
         public InputSnapshot PumpEvents()
         {
             _currentMouseDelta = new Vector2();
+
             if (_threadedProcessing)
             {
                 SimpleInputSnapshot snapshot = Interlocked.Exchange(ref _privateSnapshot, _privateBackbuffer);
@@ -461,6 +484,19 @@ namespace Veldrid.Sdl2
                     SDL_DropEvent dropEvent = ev->drop;
                     HandleDropEvent(dropEvent);
                     break;
+                // Controller
+                case SDL_EventType.SDL_CONTROLLERBUTTONDOWN:
+                case SDL_EventType.SDL_CONTROLLERBUTTONUP:
+                    // Handle button events
+                    SDL_ControllerButtonEvent cButtonEvent = ev->cbutton;
+                    HandleControllerButtonEvent(cButtonEvent);
+                    break;
+                case SDL.SDL_EventType.SDL_CONTROLLERAXISMOTION:
+                    // Handle axis events
+                    SDL_ControllerAxisEvent axisEvent = ev->caxis;
+                    HandleControllerAxisEvent(axisEvent);
+                    break;
+
                 default:
                     // Ignore
                     break;
@@ -568,6 +604,47 @@ namespace Veldrid.Sdl2
             _firstMouseEvent = false;
         }
 
+        private void HandleControllerButtonEvent(SDL_ControllerButtonEvent controllerButtonEvent)
+        {
+            SimpleInputSnapshot snapshot = _privateSnapshot;
+            KeyEvent keyEvent = new KeyEvent(MapControllerKey((SDL_GameControllerButton)controllerButtonEvent.button), controllerButtonEvent.state == 1, ModifierKeys.None, false);
+            snapshot.KeyEventsList.Add(keyEvent);
+            if (controllerButtonEvent.state == 1)
+            {
+                KeyDown?.Invoke(keyEvent);
+            }
+            else
+            {
+                KeyUp?.Invoke(keyEvent);
+            }
+        }
+
+        private void HandleControllerAxisEvent(SDL_ControllerAxisEvent controllerAxisEvent)
+        {
+            SimpleInputSnapshot snapshot = _privateSnapshot;
+            switch ((SDL_GameControllerAxis)controllerAxisEvent.axis)
+            {
+                case SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_LEFTX:
+                    snapshot.XAxis = Normalize(controllerAxisEvent.axisValue);
+                    break;
+                case SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_LEFTY:
+                    snapshot.YAxis = Normalize(controllerAxisEvent.axisValue);
+                    break;
+                default:
+                    break;
+            }
+
+        }
+
+        private float Normalize(short value)
+        {
+            return value < 0
+                ? -(value / (float)short.MinValue)
+                : (value / (float)short.MaxValue);
+        }
+
+
+
         private void HandleKeyboardEvent(SDL_KeyboardEvent keyboardEvent)
         {
             SimpleInputSnapshot snapshot = _privateSnapshot;
@@ -580,6 +657,23 @@ namespace Veldrid.Sdl2
             else
             {
                 KeyUp?.Invoke(keyEvent);
+            }
+        }
+
+        private Key MapControllerKey(SDL_GameControllerButton button)
+        {
+            switch (button)
+            {
+                case SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_A:
+                    return Key.Controller_A;
+                case SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_B:
+                    return Key.Controller_B;
+                case SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_X:
+                    return Key.Controller_X;
+                case SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_Y:
+                    return Key.Controller_Y;
+                default:
+                    return Key.Unknown;
             }
         }
 
@@ -992,6 +1086,9 @@ namespace Veldrid.Sdl2
             private bool[] _mouseDown = new bool[13];
             public bool[] MouseDown => _mouseDown;
             public float WheelDelta { get; set; }
+            public float XAxis { get; set; }
+            public float YAxis { get; set; }
+
 
             public bool IsMouseDown(MouseButton button)
             {
@@ -1004,6 +1101,8 @@ namespace Veldrid.Sdl2
                 MouseEventsList.Clear();
                 KeyCharPressesList.Clear();
                 WheelDelta = 0f;
+                XAxis = 0f;
+                YAxis = 0f;
             }
 
             public void CopyTo(SimpleInputSnapshot other)
@@ -1022,6 +1121,9 @@ namespace Veldrid.Sdl2
                 other.MousePosition = MousePosition;
                 other.WheelDelta = WheelDelta;
                 _mouseDown.CopyTo(other._mouseDown, 0);
+
+                other.XAxis = XAxis;
+                other.YAxis = YAxis;
             }
         }
 

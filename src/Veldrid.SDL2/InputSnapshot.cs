@@ -11,5 +11,7 @@ namespace Veldrid
         bool IsMouseDown(MouseButton button);
         Vector2 MousePosition { get; }
         float WheelDelta { get; }
+        float XAxis { get; }
+        float YAxis { get; }
     }
 }
