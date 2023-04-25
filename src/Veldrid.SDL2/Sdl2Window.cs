@@ -625,10 +625,10 @@ namespace Veldrid.Sdl2
             switch ((SDL_GameControllerAxis)controllerAxisEvent.axis)
             {
                 case SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_LEFTX:
-                    snapshot.XAxis = Normalize(controllerAxisEvent.axisValue);
+                    snapshot.XAxis = controllerAxisEvent.axisValue;
                     break;
                 case SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_LEFTY:
-                    snapshot.YAxis = Normalize(controllerAxisEvent.axisValue);
+                    snapshot.YAxis = controllerAxisEvent.axisValue;
                     break;
                 default:
                     break;
@@ -1101,8 +1101,8 @@ namespace Veldrid.Sdl2
                 MouseEventsList.Clear();
                 KeyCharPressesList.Clear();
                 WheelDelta = 0f;
-                XAxis = 0f;
-                YAxis = 0f;
+                //XAxis = 0f;
+                //YAxis = 0f;
             }
 
             public void CopyTo(SimpleInputSnapshot other)

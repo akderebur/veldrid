@@ -25,4 +25,8 @@
     <PackageTags>Core Standard Game SDL2 Window Input</PackageTags>
   </PropertyGroup>
 
+  <Target Name="PublishNuGetPackage" AfterTargets="Pack">
+    <Exec Command="nuget push $(PackageOutputPath)\$(PackageId).$(PackageVersion).nupkg -Source https://api.nuget.org/v3/index.json"/>
+  </Target>
+
 </Project>
