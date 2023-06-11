@@ -37,6 +37,9 @@
     <ProjectReference Include="..\Veldrid.MetalBindings\Veldrid.MetalBindings.csproj" Condition="'$(ExcludeMetal)' != 'true'" />
 
     <ProjectReference Include="..\Veldrid.OpenGLBindings\Veldrid.OpenGLBindings.csproj" Condition="'$(ExcludeOpenGL)' != 'true'" />
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.17.1" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.17.1" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.MVK" Version="2.17.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -60,4 +63,10 @@
     <PackageTags>3D Graphics Direct3D DirectX Vulkan OpenGL Metal Core Standard Game</PackageTags>
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
 </Project>

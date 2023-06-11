@@ -1,19 +1,17 @@
-﻿using Vulkan;
-using static Vulkan.VulkanNative;
-using static Veldrid.Vk.VulkanUtil;
+﻿using static Veldrid.Vk.VulkanUtil;
 
 namespace Veldrid.Vk
 {
     internal unsafe class VkResourceLayout : ResourceLayout
     {
         private readonly VkGraphicsDevice _gd;
-        private readonly VkDescriptorSetLayout _dsl;
-        private readonly VkDescriptorType[] _descriptorTypes;
+        private readonly Silk.NET.Vulkan.DescriptorSetLayout _dsl;
+        private readonly Silk.NET.Vulkan.DescriptorType[] _descriptorTypes;
         private bool _disposed;
         private string _name;
 
-        public VkDescriptorSetLayout DescriptorSetLayout => _dsl;
-        public VkDescriptorType[] DescriptorTypes => _descriptorTypes;
+        public Silk.NET.Vulkan.DescriptorSetLayout DescriptorSetLayout => _dsl;
+        public Silk.NET.Vulkan.DescriptorType[] DescriptorTypes => _descriptorTypes;
         public DescriptorResourceCounts DescriptorResourceCounts { get; }
         public new int DynamicBufferCount { get; }
 
@@ -23,26 +21,26 @@ namespace Veldrid.Vk
             : base(ref description)
         {
             _gd = gd;
-            VkDescriptorSetLayoutCreateInfo dslCI = VkDescriptorSetLayoutCreateInfo.New();
+            Silk.NET.Vulkan.DescriptorSetLayoutCreateInfo dslCI = new Silk.NET.Vulkan.DescriptorSetLayoutCreateInfo();
+            dslCI.SType = Silk.NET.Vulkan.StructureType.DescriptorSetLayoutCreateInfo;
+
             ResourceLayoutElementDescription[] elements = description.Elements;
-            _descriptorTypes = new VkDescriptorType[elements.Length];
-            VkDescriptorSetLayoutBinding* bindings = stackalloc VkDescriptorSetLayoutBinding[elements.Length];
+            _descriptorTypes = new Silk.NET.Vulkan.DescriptorType[elements.Length];
+            Silk.NET.Vulkan.DescriptorSetLayoutBinding* bindings = stackalloc Silk.NET.Vulkan.DescriptorSetLayoutBinding[elements.Length];
 
             uint uniformBufferCount = 0;
-            uint uniformBufferDynamicCount = 0;
             uint sampledImageCount = 0;
             uint samplerCount = 0;
             uint storageBufferCount = 0;
-            uint storageBufferDynamicCount = 0;
             uint storageImageCount = 0;
 
             for (uint i = 0; i < elements.Length; i++)
             {
-                bindings[i].binding = i;
-                bindings[i].descriptorCount = 1;
-                VkDescriptorType descriptorType = VkFormats.VdToVkDescriptorType(elements[i].Kind, elements[i].Options);
-                bindings[i].descriptorType = descriptorType;
-                bindings[i].stageFlags = VkFormats.VdToVkShaderStages(elements[i].Stages);
+                bindings[i].Binding = i;
+                bindings[i].DescriptorCount = 1;
+                Silk.NET.Vulkan.DescriptorType descriptorType = VkFormats.VdToVkDescriptorType(elements[i].Kind, elements[i].Options);
+                bindings[i].DescriptorType = descriptorType;
+                bindings[i].StageFlags = VkFormats.VdToVkShaderStages(elements[i].Stages);
                 if ((elements[i].Options & ResourceLayoutElementOptions.DynamicBinding) != 0)
                 {
                     DynamicBufferCount += 1;
@@ -52,43 +50,35 @@ namespace Veldrid.Vk
 
                 switch (descriptorType)
                 {
-                    case VkDescriptorType.Sampler:
+                    case Silk.NET.Vulkan.DescriptorType.Sampler:
                         samplerCount += 1;
                         break;
-                    case VkDescriptorType.SampledImage:
+                    case Silk.NET.Vulkan.DescriptorType.SampledImage:
                         sampledImageCount += 1;
                         break;
-                    case VkDescriptorType.StorageImage:
+                    case Silk.NET.Vulkan.DescriptorType.StorageImage:
                         storageImageCount += 1;
                         break;
-                    case VkDescriptorType.UniformBuffer:
+                    case Silk.NET.Vulkan.DescriptorType.UniformBuffer:
                         uniformBufferCount += 1;
                         break;
-                    case VkDescriptorType.UniformBufferDynamic:
-                        uniformBufferDynamicCount += 1;
-                        break;
-                    case VkDescriptorType.StorageBuffer:
+                    case Silk.NET.Vulkan.DescriptorType.StorageBuffer:
                         storageBufferCount += 1;
-                        break;
-                    case VkDescriptorType.StorageBufferDynamic:
-                        storageBufferDynamicCount += 1;
                         break;
                 }
             }
 
             DescriptorResourceCounts = new DescriptorResourceCounts(
                 uniformBufferCount,
-                uniformBufferDynamicCount,
                 sampledImageCount,
                 samplerCount,
                 storageBufferCount,
-                storageBufferDynamicCount,
                 storageImageCount);
 
-            dslCI.bindingCount = (uint)elements.Length;
-            dslCI.pBindings = bindings;
+            dslCI.BindingCount = (uint)elements.Length;
+            dslCI.PBindings = bindings;
 
-            VkResult result = vkCreateDescriptorSetLayout(_gd.Device, ref dslCI, null, out _dsl);
+            var result = _gd.vk.CreateDescriptorSetLayout(_gd.Device, &dslCI, null, out _dsl);
             CheckResult(result);
         }
 
@@ -107,7 +97,7 @@ namespace Veldrid.Vk
             if (!_disposed)
             {
                 _disposed = true;
-                vkDestroyDescriptorSetLayout(_gd.Device, _dsl, null);
+                _gd.vk.DestroyDescriptorSetLayout(_gd.Device, _dsl, null);
             }
         }
     }

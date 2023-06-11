@@ -235,8 +235,8 @@ namespace Veldrid.StartupUtilities
                     return Vk.VkSurfaceSource.CreateWin32(sysWmInfo.info.win.hinstance, sysWmInfo.info.win.window);
                 case SDL_SYSWM_TYPE.SDL_SYSWM_X11:
                     return Vk.VkSurfaceSource.CreateXlib(
-                        (Vulkan.Xlib.Display*)sysWmInfo.info.x11.display,
-                        new Vulkan.Xlib.Window() { Value = sysWmInfo.info.x11.window });
+                        (Vk.Xlib.Display*)sysWmInfo.info.x11.display,
+                        new Vk.Xlib.Window() { Value = sysWmInfo.info.x11.window });
                 default:
                     throw new PlatformNotSupportedException("Cannot create a Vulkan surface for " + sysWmInfo.subsystem + ".");
             }
