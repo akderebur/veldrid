@@ -26,4 +26,9 @@
     <PackageTags>3D Graphics Direct3D DirectX Vulkan OpenGL Metal Core Standard Game ImageSharp</PackageTags>
   </PropertyGroup>
 
+  
+  <Target Name="PublishNuGetPackage" AfterTargets="Pack">
+    <Exec Command="nuget push $(PackageOutputPath)\$(PackageId).$(PackageVersion).nupkg -Source https://api.nuget.org/v3/index.json"/>
+  </Target>
+
 </Project>
