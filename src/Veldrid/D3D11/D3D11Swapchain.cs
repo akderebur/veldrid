@@ -120,10 +120,14 @@ namespace Veldrid.D3D11
                 ? Format.B8G8R8A8_UNorm_SRgb
                 : Format.B8G8R8A8_UNorm;
 
-            using (IDXGIFactory5 dxgiFactory5 = _gd.Adapter.GetParent<IDXGIFactory5>())
+            // previously we had an extension method ("GetParentOrNull") which makes this read a lot better,
+            // but it resulted in AOT compilation crashes on iOS, therefore we can only do this inline.
+            using (IDXGIFactory5 dxgiFactory5 = (_gd.Adapter.GetParent(out IDXGIFactory5 f).Success ? f : null))
                 _canTear = dxgiFactory5?.PresentAllowTearing == true;
 
-            using (IDXGIFactory3 dxgiFactory3 = _gd.Adapter.GetParent<IDXGIFactory3>())
+            // previously we had an extension method ("GetParentOrNull") which makes this read a lot better,
+            // but it resulted in AOT compilation crashes on iOS, therefore we can only do this inline.
+            using (IDXGIFactory3 dxgiFactory3 = (_gd.Adapter.GetParent(out IDXGIFactory3 f).Success ? f : null))
                 _canCreateFrameLatencyWaitableObject = dxgiFactory3 != null;
 
             _width = description.Width;
@@ -147,11 +151,21 @@ namespace Veldrid.D3D11
             _frameLatencyWaitHandle?.Dispose();
             _frameLatencyWaitHandle = null;
 
+            // FlipDiscard is only supported on DXGI 1.4+
+            bool canUseFlipDiscard;
+
+            // previously we had an extension method ("GetParentOrNull") which makes this read a lot better,
+            // but it resulted in AOT compilation crashes on iOS, therefore we can only do this inline.
+            using (IDXGIFactory4 dxgiFactory4 = (_gd.Adapter.GetParent(out IDXGIFactory4 f).Success ? f : null))
+                canUseFlipDiscard = dxgiFactory4 != null;
+
+            SwapEffect swapEffect = canUseFlipDiscard ? SwapEffect.FlipDiscard : SwapEffect.Discard;
+
             _flags = SwapChainFlags.None;
 
             if (AllowTearing && _canTear)
                 _flags |= SwapChainFlags.AllowTearing;
-            else if (_canCreateFrameLatencyWaitableObject)
+            else if (_canCreateFrameLatencyWaitableObject && canUseFlipDiscard)
                 _flags |= SwapChainFlags.FrameLatencyWaitableObject;
 
             if (_description.Source is Win32SwapchainSource win32Source)
@@ -164,7 +178,7 @@ namespace Veldrid.D3D11
                         (int)_width, (int)_height, _colorFormat),
                     OutputWindow = win32Source.Hwnd,
                     SampleDescription = new SampleDescription(1, 0),
-                    SwapEffect = SwapEffect.FlipDiscard,
+                    SwapEffect = swapEffect,
                     BufferUsage = Usage.RenderTargetOutput,
                     Flags = _flags
                 };
