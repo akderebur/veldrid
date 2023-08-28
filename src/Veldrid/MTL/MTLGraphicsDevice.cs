@@ -43,6 +43,10 @@ namespace Veldrid.MTL
         private readonly IntPtr _completionBlockDescriptor;
         private readonly IntPtr _completionBlockLiteral;
 
+        private readonly IMTLDisplayLink _displayLink;
+        private readonly AutoResetEvent _nextFrameReadyEvent;
+        private readonly EventWaitHandle _frameEndedEvent = new EventWaitHandle(true, EventResetMode.ManualReset);
+
         public MTLDevice Device => _device;
         public MTLCommandQueue CommandQueue => _commandQueue;
         public MTLFeatureSupport MetalFeatures { get; }
@@ -52,6 +56,24 @@ namespace Veldrid.MTL
         public MTLGraphicsDevice(GraphicsDeviceOptions options, SwapchainDescription? swapchainDesc)
             : this(options, swapchainDesc, new MetalDeviceOptions())
         {
+        }
+
+        public override void UpdateActiveDisplay(int x, int y, int w, int h)
+        {
+            if (_displayLink != null)
+            {
+                _displayLink.UpdateActiveDisplay(x, y, w, h);
+            }
+        }
+
+        public override double GetActualRefreshPeriod()
+        {
+            if (_displayLink != null)
+            {
+                return _displayLink.GetActualOutputVideoRefreshPeriod();
+            }
+
+            return -1.0f;
         }
 
         public MTLGraphicsDevice(
@@ -95,11 +117,18 @@ namespace Veldrid.MTL
                 _libSystem = new NativeLibrary("libSystem.dylib");
                 _concreteGlobalBlock = _libSystem.LoadFunction("_NSConcreteGlobalBlock");
                 _completionHandler = OnCommandBufferCompleted;
+                _displayLink = new MTLCVDisplayLink();
             }
             else
             {
                 _concreteGlobalBlock = IntPtr.Zero;
                 _completionHandler = OnCommandBufferCompleted_Static;
+            }
+
+            if (_displayLink != null)
+            {
+                _displayLink.Callback += OnDisplayLinkCallback;
+                _nextFrameReadyEvent = new AutoResetEvent(true);
             }
 
             _completionHandlerFuncPtr = Marshal.GetFunctionPointerForDelegate<MTLCommandBufferHandler>(_completionHandler);
@@ -218,6 +247,22 @@ namespace Veldrid.MTL
 
         private protected override void WaitForNextFrameReadyCore()
         {
+            _frameEndedEvent.Reset();
+            _nextFrameReadyEvent?.WaitOne(TimeSpan.FromSeconds(1)); // Should never time out.
+
+            // in iOS, if one frame takes longer than the next V-Sync request, the next frame will be processed immediately rather than being delayed to a subsequent V-Sync request,
+            // therefore we will request the next drawable here as a method of waiting until we're ready to draw the next frame.
+            if (!MetalFeatures.IsMacOS)
+            {
+                MTLSwapchainFramebuffer mtlSwapchainFramebuffer = Util.AssertSubtype<Framebuffer, MTLSwapchainFramebuffer>(_mainSwapchain.Framebuffer);
+                mtlSwapchainFramebuffer.EnsureDrawableAvailable();
+            }
+        }
+
+        private void OnDisplayLinkCallback()
+        {
+            _nextFrameReadyEvent.Set();
+            _frameEndedEvent.WaitOne();
         }
 
         public override TextureSampleCount GetSampleCountLimit(PixelFormat format, bool depthFormat)
@@ -319,6 +364,8 @@ namespace Veldrid.MTL
 
                 mtlSC.InvalidateDrawable();
             }
+
+            _frameEndedEvent.Set();
         }
 
         private protected override void UpdateBufferCore(DeviceBuffer buffer, uint bufferOffsetInBytes, IntPtr source, uint sizeInBytes)
@@ -326,6 +373,10 @@ namespace Veldrid.MTL
             var mtlBuffer = Util.AssertSubtype<DeviceBuffer, MTLBuffer>(buffer);
             void* destPtr = mtlBuffer.Pointer;
             byte* destOffsetPtr = (byte*)destPtr + bufferOffsetInBytes;
+
+            if (destPtr == null)
+                throw new VeldridException("Attempting to write to a MTLBuffer that is inaccessible from a CPU.");
+
             Unsafe.CopyBlock(destOffsetPtr, source.ToPointer(), sizeInBytes);
         }
 
@@ -453,6 +504,8 @@ namespace Veldrid.MTL
             _libSystem?.Dispose();
             Marshal.FreeHGlobal(_completionBlockDescriptor);
             Marshal.FreeHGlobal(_completionBlockLiteral);
+
+            _displayLink?.Dispose();
         }
 
         public override bool GetMetalInfo(out BackendInfoMetal info)
